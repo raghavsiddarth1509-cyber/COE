@@ -79,80 +79,10 @@ If you fork or substantially redeploy the project under your own Firebase projec
 ```text
 src/firebase.js
 ```
-Also make sure Google Sign-In is enabled in your Firebase Authentication settings.
+
+
 ---
-📄 How to Analyze One Resume
-Use Analyze when you want to evaluate one candidate.
-Steps
-Open the Analyze page.
-Upload the candidate's resume.
-Supported resume formats:
-PDF
-DOCX
-Enter or paste the Job Description.
-Start the analysis.
-Wait for the processing screen to finish.
-HireLens generates a candidate analysis.
-The result can include:
-Candidate name
-Email
-Phone
-LinkedIn
-Extracted skills
-Experience information
-Education information
-Matched requirements
-Missing requirements
-Fit score
-Recommendation
-Main strengths
-Main gaps
-Evidence fields
----
-📚 How to Analyze Multiple Resumes
-Use Bulk Analyze when comparing several candidates for the same role.
-Steps
-Open Bulk Analyze.
-Select multiple resume files.
-Enter the job description.
-Start the analysis.
-Wait for processing to finish.
-Open the Rankings page.
-HireLens processes the resumes and ranks candidates according to their calculated fit scores.
----
-🏆 Candidate Rankings
-The Rankings page displays candidates ordered by their fit score.
-Use it to:
-Identify the strongest candidates
-Compare candidate scores
-Open individual candidate reports
-Review matched and missing requirements
----
-👤 Candidate Analysis
-Open a candidate from the dashboard or rankings to view their detailed report.
-The candidate report provides a more detailed view of:
-Overall fit
-Skills match
-Experience match
-Education match
-Strengths
-Gaps
-Matched requirements
-Missing requirements
-Extracted candidate profile
----
-🔎 Evidence Explorer
-The Evidence Explorer is used to inspect the information extracted from a candidate's resume.
-It helps you understand why a candidate received particular matches or gaps instead of relying only on the final score.
----
-👥 Candidate Comparison
-The Comparison page can be used to compare candidates side-by-side.
-This is useful when several applicants have similar fit scores and you want to inspect their differences before making a decision.
----
-🕒 Analysis History
-The History page records completed resume evaluations.
-It can be used to review previous candidate analyses and their fit scores.
----
+
 ⚙️ Backend API
 The Express backend runs on:
 ```text
