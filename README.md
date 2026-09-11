@@ -1,35 +1,6 @@
 HireLens
 HireLens is an evidence-based AI-assisted resume screening and candidate analysis platform. It helps recruiters evaluate resumes against a job description, compare candidates, view rankings, and inspect the evidence extracted from resumes.
-✨ Features
-🔐 Google authentication using Firebase
-📄 Single resume analysis
-📚 Bulk resume analysis
-🎯 Job-description vs. resume matching
-📊 Candidate fit score and recommendation
-🏆 Candidate rankings
-🔎 Evidence Explorer for extracted candidate information
-👥 Candidate profiles and comparison
-🕒 Analysis history
-💾 Local backend persistence using a JSON data store
-📑 PDF and DOCX resume text extraction
-🔄 Client-side fallback analysis when the backend is unavailable
----
-🛠️ Tech Stack
-Frontend
-React 18
-Vite
-JavaScript / JSX
-Firebase Authentication
-Backend
-Node.js
-Express.js
-Multer
-`pdf-parse`
-Mammoth
-Data & Authentication
-Firebase Authentication
-Local JSON storage (`server/data/store.json`)
----
+
 🚀 How to Run the Project
 1. Prerequisites
 Install the following before running HireLens:
