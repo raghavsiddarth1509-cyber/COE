@@ -1,314 +1,74 @@
-HireLens
-HireLens is an evidence-based AI-assisted resume screening and candidate analysis platform. It helps recruiters evaluate resumes against a job description, compare candidates, view rankings, and inspect the evidence extracted from resumes.
+# HireLens AI — Evidence-Based AI Candidate Analyzer
 
-🚀 How to Run the Project
-1. Prerequisites
-Install the following before running HireLens:
-Node.js — preferably Node.js 18 or newer
-npm
-A modern web browser such as Chrome, Edge, or Firefox
-Check your installations:
-```bash
-node --version
-npm --version
-```
+HireLens is an intelligent, evidence-grounded resume analysis and candidate screening platform. It eliminates hallucinated screening decisions by strictly pairing extracted applicant data and job requirement evaluations with verbatim evidence quotes from submitted resumes.
+
 ---
-2. Clone the Repository
-After pushing this project to GitHub, clone it using:
-```bash
-git clone https://github.com/YOUR-USERNAME/YOUR-REPOSITORY.git
-```
-Move into the project folder:
-```bash
-cd HireLens
-```
-> Replace `YOUR-USERNAME/YOUR-REPOSITORY` with your actual GitHub repository.
+
+## 🛠️ Architecture & Core Components
+
+1. **Section Segmentation (`server/services/segmenter.js`)**: Deterministically segments candidate resumes into structured blocks (`CONTACT`, `SUMMARY`, `EDUCATION`, `EXPERIENCE`, `SKILLS`, `CERTIFICATIONS`, `PROJECTS`).
+2. **Structured Field Extractor & Evidence Grounding (`server/services/fieldExtractor.js`)**: Extracts key candidate attributes and pairs each attribute with direct resume citations, confidence scores, and audit reasoning trails.
+3. **Semantic Job Fit Analyzer (`server/services/jdAnalyzer.js`)**: Performs multi-factor alignment against target Job Descriptions (Skills 40%, Experience 25%, Education 15%, Requirements 20%), categorizing into Strong, Moderate, or Partial matches.
+4. **Candidate Identity Consolidator (`server/services/profileConsolidator.js`)**: Deduplicates incoming resumes across multiple submissions, matching contact and experience signals to maintain a unified candidate history.
+5. **Database Store (`server/services/storage.js`)**: Persistent data layer maintaining structured candidates and audit logs in `server/data/store.json`.
+6. **React Frontend (`src/`)**: Real-time interactive UI with Live Candidate Rankings, Evidence Explorer, Fit Score breakdown, and Bulk Analysis mode.
+
 ---
-3. Install Dependencies
-Run:
+
+## 🚀 Setup & Execution Instructions
+
+### Prerequisites
+- Node.js (v18.x or v20.x+)
+- npm (v9.x+)
+
+### 1. Install Dependencies
 ```bash
 npm install
 ```
-This installs both the frontend and backend dependencies defined in `package.json`.
----
-▶️ Start HireLens
-HireLens uses two processes:
-React/Vite frontend
-Express backend API
-You should run both.
-Terminal 1 — Start the Backend
-From the project root:
+
+### 2. Run Backend API Server
 ```bash
 npm run server
 ```
-The backend will start at:
-```text
-http://localhost:5000
-```
-You can verify that it is working by opening:
-```text
-http://localhost:5000/api/health
-```
-A successful response looks similar to:
-```json
-{
-  "status": "online",
-  "service": "HireLens AI REST API"
-}
-```
----
-Terminal 2 — Start the Frontend
-Open another terminal in the project folder and run:
+*API will start on `http://localhost:5000` (or `PORT` specified in environment).*
+
+### 3. Run Frontend Development Server
 ```bash
 npm run dev
 ```
-Vite will start the frontend at:
-```text
-http://localhost:3000
-```
-Open the displayed address in your browser.
----
-🔐 Login
-HireLens uses Firebase Authentication.
-On the login page:
-Open HireLens.
-Select the login/sign-in option.
-Use the configured Google authentication option.
-After successful authentication, you will be taken into the application.
-If you fork or substantially redeploy the project under your own Firebase project, update the Firebase configuration in:
-```text
-src/firebase.js
-```
+*Vite dev server will start on `http://localhost:5173`.*
 
-
----
-
-⚙️ Backend API
-The Express backend runs on:
-```text
-http://localhost:5000
-```
-Available endpoints include:
-Method	Endpoint	Purpose
-GET	`/api/health`	Check backend status
-GET	`/api/candidates`	Get all candidates
-GET	`/api/candidates/:id`	Get one candidate
-GET	`/api/candidates/:id/evidence`	Get candidate evidence
-GET	`/api/history`	Get analysis history
-POST	`/api/analyze`	Analyze one resume
-POST	`/api/analyze/bulk`	Analyze multiple resumes
-The frontend communicates with the backend through:
-```text
-src/services/apiClient.js
-```
-The current local API base URL is:
-```text
-http://localhost:5000/api
-```
----
-📁 Project Structure
-```text
-HireLens/
-│
-├── public/
-│   ├── favicon.svg
-│   └── HireLens_product_demo_teaser_16x9.mp4
-│
-├── server/
-│   ├── data/
-│   │   └── store.json
-│   │
-│   ├── routes/
-│   │   └── api.js
-│   │
-│   ├── services/
-│   │   ├── extractor.js
-│   │   ├── fieldExtractor.js
-│   │   ├── jdAnalyzer.js
-│   │   ├── profileConsolidator.js
-│   │   ├── segmenter.js
-│   │   └── storage.js
-│   │
-│   └── index.js
-│
-├── src/
-│   ├── components/
-│   ├── data/
-│   ├── pages/
-│   ├── services/
-│   │   ├── analysisEngine.js
-│   │   └── apiClient.js
-│   │
-│   ├── App.jsx
-│   ├── firebase.js
-│   └── main.jsx
-│
-├── package.json
-├── package-lock.json
-├── vite.config.js
-├── firebase.json
-└── README.md
-```
----
-🧠 How the Analysis Works
-At a high level, the analysis pipeline is:
-```text
-Resume Upload
-      ↓
-Resume Text Extraction
-      ↓
-Candidate Information Extraction
-      ↓
-Job Description Analysis
-      ↓
-Resume ↔ Job Matching
-      ↓
-Fit Score & Recommendation
-      ↓
-Candidate Profile
-      ↓
-Evidence / Rankings / History
-```
-For PDF files, HireLens uses `pdf-parse`.
-For DOCX files, HireLens uses Mammoth to extract the document text.
----
-💾 Data Storage
-The backend currently uses a local JSON file:
-```text
-server/data/store.json
-```
-Candidate profiles and analysis history are stored there.
-Important
-If you are deploying HireLens for production or multiple users, replace the JSON storage layer with a proper database such as:
-Firebase Firestore
-PostgreSQL
-MongoDB
-MySQL
-The current JSON storage is intended mainly for development, demonstrations, and prototype usage.
----
-🔄 Backend Fallback
-If the frontend cannot reach the Express backend, HireLens has a client-side fallback analysis engine.
-This logic is located in:
-```text
-src/services/analysisEngine.js
-```
-Therefore, some parts of the application can still operate even if the backend is unavailable.
-For the complete resume extraction and persistence workflow, however, running the backend is recommended.
----
-📦 Production Build
-To create a production frontend build:
+### 4. Build for Production
 ```bash
 npm run build
 ```
-The generated files will be placed in:
-```text
-dist/
-```
-To preview the production build locally:
+
+### 5. Run Automated Tests
 ```bash
-npm run preview
+npm test
 ```
+
 ---
-🌐 Firebase Hosting
-The project contains a `firebase.json` configuration for Firebase Hosting.
-After configuring Firebase CLI and authenticating with your Firebase account, build the application:
+
+## 🧪 Evaluation & Test Coverage
+
+### Run Automated Unit & Integration Tests:
 ```bash
-npm run build
+npm test
 ```
-Then deploy the frontend:
+The test suite deterministically verifies:
+- File extraction (empty buffer errors, plain text extraction, unsupported format handling)
+- Resume section segmentation accuracy
+- Field extraction & evidence grounding linkage (`FOUND`, `NOT_FOUND`, `AMBIGUOUS`)
+- Embedding vector generation & real cosine similarity calculation
+- Job description requirement parsing
+- Database persistence read/write operations
+- Express REST API health, bad input handling, and 404 responses
+
+### Run Benchmark Evaluation System:
 ```bash
-firebase deploy
+node evaluate.js
 ```
-> The deployed frontend still needs access to the backend API. The current `src/services/apiClient.js` points to `http://localhost:5000/api`, so production deployment requires changing the API URL to your deployed backend URL.
----
-⚠️ Important Notes Before Deployment
-1. Backend URL
-The current frontend API client uses:
-```text
-http://localhost:5000/api
-```
-For a deployed application, change this to the URL of your hosted backend.
-2. Firebase Configuration
-If using your own Firebase project, update:
-```text
-src/firebase.js
-```
-with your Firebase Web App configuration.
-3. Resume File Size
-The backend currently accepts resume uploads up to:
-```text
-10 MB per file
-```
-4. Local Storage
-Candidate data is stored in:
-```text
-server/data/store.json
-```
-Do not treat this JSON file as a production database.
----
-🐛 Troubleshooting
-Frontend does not start
-Try:
-```bash
-npm install
-npm run dev
-```
-If the port is already in use, stop the existing Vite process and run the command again.
----
-Backend does not start
-Try:
-```bash
-npm install
-npm run server
-```
-Then check:
-```text
-http://localhost:5000/api/health
-```
----
-Resume analysis fails
-Check that:
-The backend is running.
-The resume is PDF or DOCX.
-The file is smaller than 10 MB.
-A job description has been entered.
-The browser console does not show network errors.
----
-Login does not work
-Check the Firebase Authentication configuration and ensure Google Sign-In is enabled for the Firebase project being used.
----
-👨‍💻 Development Commands
-Command	Description
-`npm install`	Install dependencies
-`npm run dev`	Start frontend development server
-`npm run server`	Start Express backend
-`npm run build`	Build frontend for production
-`npm run preview`	Preview production frontend
----
-🤝 Contributing
-Contributions are welcome.
-Fork the repository.
-Create a feature branch.
-```bash
-git checkout -b feature/your-feature
-```
-Make your changes.
-Test the frontend and backend.
-Commit your changes.
-```bash
-git add .
-git commit -m "Add your feature"
-```
-Push the branch.
-```bash
-git push origin feature/your-feature
-```
-Open a Pull Request.
----
-📜 License
-This project is currently intended for educational, demonstration, and development purposes.
-If you plan to distribute or deploy HireLens commercially, add an appropriate open-source or proprietary license to this repository.
----
-⭐ HireLens
-Evidence-based candidate screening made easier.
-If you find this project useful, consider giving the repository a ⭐ on GitHub.
+The evaluation harness runs a labelled dataset of Candidate Resumes vs. Target Job Descriptions and calculates real classification metrics:
+- **True Positives (TP)**, **True Negatives (TN)**, **False Positives (FP)**, **False Negatives (FN)**
+- **Accuracy**, **Precision**, **Recall**, and **F1 Score**
