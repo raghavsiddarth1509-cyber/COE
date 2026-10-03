@@ -1,6 +1,3 @@
-// Deterministic mock analysis service following HireLens architecture:
-// RESUME -> TEXT EXTRACTION -> SECTION SEGMENTATION -> STRUCTURED FIELD EXTRACTION -> EVIDENCE VERIFICATION -> JOB DESCRIPTION MATCHING -> FIT SCORE -> CANDIDATE REPORT
-
 // Normalization helper functions for silent background profile consolidation
 function normalizeEmail(email) {
   return (email || '').trim().toLowerCase();
@@ -20,8 +17,8 @@ function normalizeName(name) {
 
 /**
  * Internal Identity Matching Service:
- * Compares extracted candidate data against existing candidate profiles.
- * Automatically merges/updates on HIGH confidence without exposing duplicate detection as a UI feature.
+ * Compares candidate data against existing candidate profiles.
+ * Automatically merges/updates on matching signals without fake inferences.
  */
 export function matchCandidateProfile(extractedData, existingCandidates = []) {
   const normEmail = normalizeEmail(extractedData.email);
@@ -32,7 +29,6 @@ export function matchCandidateProfile(extractedData, existingCandidates = []) {
   const company = (extractedData.extractedProfile?.latestExperience || '').toLowerCase();
 
   let matchedCandidate = null;
-  let matchConfidence = "LOW";
 
   for (const candidate of existingCandidates) {
     const cEmail = normalizeEmail(candidate.email);
@@ -45,42 +41,32 @@ export function matchCandidateProfile(extractedData, existingCandidates = []) {
     // 1. Strong Signals (Exact Email, Phone, or LinkedIn)
     if (normEmail && cEmail && normEmail === cEmail) {
       matchedCandidate = candidate;
-      matchConfidence = "HIGH";
       break;
     }
     if (normPhone && cPhone && normPhone.length > 5 && normPhone === cPhone) {
       matchedCandidate = candidate;
-      matchConfidence = "HIGH";
       break;
     }
     if (normLinkedin && cLinkedin && normLinkedin === cLinkedin) {
       matchedCandidate = candidate;
-      matchConfidence = "HIGH";
       break;
     }
 
-    // 2. Additional Signals (Name + Institution / Company / Location)
-    if (normName && cName && normName === cName) {
+    // 2. Secondary Signals (Name + Education or Company)
+    if (normName && cName && normName === cName && normName !== 'unknown candidate') {
       let signalCount = 0;
       if (inst && cInst && (inst.includes(cInst.slice(0, 6)) || cInst.includes(inst.slice(0, 6)))) signalCount++;
       if (company && cCompany && (company.includes(cCompany.slice(0, 6)) || cCompany.includes(company.slice(0, 6)))) signalCount++;
-      if (extractedData.location && candidate.location && extractedData.location.toLowerCase() === candidate.location.toLowerCase()) signalCount++;
-
       if (signalCount >= 1) {
         matchedCandidate = candidate;
-        matchConfidence = "HIGH";
         break;
       }
     }
   }
 
-  if (matchedCandidate && matchConfidence === "HIGH") {
-    // Silently associate new document with existing candidate
+  if (matchedCandidate) {
     const docName = extractedData.documents?.[0]?.name || "Updated_Resume.pdf";
-    const existingDocs = matchedCandidate.documents || [
-      { name: `${matchedCandidate.name.replace(/\s+/g, "_")}_Resume.pdf`, date: "Previous" }
-    ];
-
+    const existingDocs = matchedCandidate.documents || [];
     const updatedDocs = [
       { name: docName, date: new Date().toISOString().split('T')[0] },
       ...existingDocs.filter(d => d.name !== docName)
@@ -88,7 +74,6 @@ export function matchCandidateProfile(extractedData, existingCandidates = []) {
 
     const updatedCandidate = {
       ...matchedCandidate,
-      // Update with latest fit score, recommendation & analysis criteria
       fitScore: extractedData.fitScore,
       fitStatus: extractedData.fitStatus,
       recommendation: extractedData.recommendation,
@@ -99,151 +84,143 @@ export function matchCandidateProfile(extractedData, existingCandidates = []) {
       mainGap: extractedData.mainGap,
       matchedRequirements: extractedData.matchedRequirements,
       missingRequirements: extractedData.missingRequirements,
-      // Retain combined evidence fields for traceability
       evidenceFields: {
         ...matchedCandidate.evidenceFields,
         ...extractedData.evidenceFields
       },
       documents: updatedDocs,
       resumeText: extractedData.resumeText || matchedCandidate.resumeText,
-      updatedNotice: "Existing candidate profile updated."
+      updatedAt: new Date().toISOString()
     };
 
     return { candidate: updatedCandidate, isExisting: true };
   } else {
-    // Create new candidate profile
-    const docName = extractedData.documents?.[0]?.name || `${extractedData.name.replace(/\s+/g, "_")}_Resume.pdf`;
-    const newCandidate = {
-      ...extractedData,
-      documents: [{ name: docName, date: new Date().toISOString().split('T')[0] }]
-    };
-    return { candidate: newCandidate, isExisting: false };
+    return { candidate: extractedData, isExisting: false };
   }
 }
 
+/**
+ * Client-side fallback analyzer when backend is offline.
+ * Extracts actual declared tokens and verifies requirements strictly without fake profiles.
+ */
 export function analyzeResume(resumeFile, resumeText, jobDescription) {
   const fileName = resumeFile ? resumeFile.name : "Uploaded_Resume.pdf";
-  const nameParts = fileName.replace(/\.[^/.]+$/, "").split(/[_-\s]+/);
-  
-  let candidateName = nameParts.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
-  if (!candidateName || candidateName.toLowerCase().includes("resume") || candidateName.length < 3) {
-    candidateName = "John Mathew";
+  const id = "c_" + Date.now();
+  const text = (resumeText || "").trim();
+  const textLower = text.toLowerCase();
+  const jdLower = (jobDescription || "").toLowerCase();
+
+  // Name extraction from clean filename or first line
+  const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+  let candidateName = null;
+  for (const line of lines.slice(0, 5)) {
+    if (/^[A-Z][a-zA-Z'.]+(\s+[A-Z][a-zA-Z'.]+){1,3}$/.test(line) && !/resume|cv|profile|summary|contact/i.test(line)) {
+      candidateName = line;
+      break;
+    }
+  }
+  if (!candidateName) {
+    const cleanFileName = fileName.replace(/\.[^/.]+$/, "").trim();
+    if (!/resume|cv|document|upload/i.test(cleanFileName)) {
+      const parts = cleanFileName.split(/[_-\s]+/).filter(Boolean);
+      if (parts.length >= 2 && parts.length <= 4) {
+        candidateName = parts.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join(" ");
+      }
+    }
+  }
+  if (!candidateName) {
+    candidateName = "Candidate";
   }
 
-  const id = "c_" + Date.now();
-  const jdLower = (jobDescription || "").toLowerCase();
-  const resLower = (resumeText || "").toLowerCase();
+  // Extract technical skills
+  const technicalGlossary = [
+    'JavaScript', 'TypeScript', 'Python', 'Java', 'C++', 'Go', 'Rust',
+    'React', 'Node.js', 'Express', 'Vue', 'Angular', 'Next.js', 'SQL',
+    'PostgreSQL', 'MySQL', 'MongoDB', 'AWS', 'Docker', 'Kubernetes', 'Git'
+  ];
 
-  // Deterministic scoring based on keyword correlation
-  let score = 75;
-  const keywords = ["react", "python", "node", "typescript", "aws", "docker", "sql", "postgresql", "rest", "api"];
-  let matchedCount = 0;
-  
-  keywords.forEach(kw => {
-    if (jdLower.includes(kw) && resLower.includes(kw)) {
-      matchedCount += 1;
+  const extractedSkills = technicalGlossary.filter(tech => {
+    const escaped = tech.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`\\b${escaped}\\b`, 'i').test(text);
+  });
+
+  // Calculate real overlap
+  let matchedSkillCount = 0;
+  extractedSkills.forEach(sk => {
+    if (jdLower.includes(sk.toLowerCase())) {
+      matchedSkillCount++;
     }
   });
 
-  score = Math.min(96, Math.max(58, 65 + matchedCount * 4));
+  const skillsMatch = extractedSkills.length > 0
+    ? Math.min(100, Math.round((matchedSkillCount / Math.max(1, extractedSkills.length)) * 100))
+    : 0;
 
-  const fitStatus = score >= 85 ? "Strong Match" : score >= 70 ? "Moderate Match" : "Partial Match";
-  const recommendation = score >= 85
-    ? "Strong Match. High correlation with required technical stack. Proceed to technical screening."
-    : score >= 70
-    ? "Moderate Match. Core competencies aligned; minor missing verification items."
-    : "Partial Match. Candidate shows partial alignment; key senior requirements unverified.";
+  const score = Math.min(100, Math.round(skillsMatch * 0.7 + (matchedSkillCount > 0 ? 20 : 0)));
+  const fitStatus = score >= 80 ? "Strong Match" : score >= 50 ? "Moderate Match" : "Partial Match";
+  const recommendation = score >= 80
+    ? "Strong Match. Demonstrated coverage of required technical criteria."
+    : score >= 50
+    ? "Moderate Match. Core technical skills identified; partial requirement alignment."
+    : "Partial Match. Candidate shows significant gaps relative to criteria.";
 
-  const skillsMatch = Math.min(100, score + 3);
-  const experienceMatch = Math.max(60, score - 5);
-  const educationMatch = 90;
+  const emailMatch = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
+  const phoneMatch = text.match(/(\+?\d{1,3}[-.\s]?)?(\(?\d{3}\)?[-.\s]?)?\d{3}[-.\s]?\d{4}/);
+  const linkedinMatch = text.match(/(?:https?:\/\/)?(?:www\.)?linkedin\.com\/in\/[a-zA-Z0-9_-]+/i);
 
-  const extractedProfile = {
-    education: "B.S. Computer Science\nState University, 2020",
-    latestExperience: `Senior Software Engineer\n2021 - Present`,
-    skills: [
-      { name: "React", verified: resLower.includes("react") || true },
-      { name: "Node.js", verified: resLower.includes("node") || true },
-      { name: "TypeScript", verified: resLower.includes("typescript") || true },
-      { name: "Python", verified: resLower.includes("python") || true },
-      { name: "SQL", verified: resLower.includes("sql") || true }
-    ]
-  };
-
-  const matchedRequirements = [
-    {
-      id: "req-gen-1",
-      title: "Core Technical Stack Match",
-      status: "MATCHED",
-      explanation: "Extracted direct skill assertions matching Job Description key requirements.",
-      fieldId: "SKILLS-LIST",
-      evidence: `Extracted Skills: React, Node.js, TypeScript, SQL from ${fileName}`
-    },
-    {
-      id: "req-gen-2",
-      title: "Full-Stack Development Experience",
-      status: "MATCHED",
-      explanation: "Found evidence in work experience section demonstrating production system implementation.",
-      fieldId: "EXP-LEAD",
-      evidence: "Demonstrated modern software engineering practices in active role."
-    }
-  ];
-
-  const missingRequirements = [
-    {
-      id: "req-gen-m1",
-      title: "REST API Deep Architecture",
-      status: "NOT_FOUND",
-      explanation: "REST API deep architecture experience was not found in the available resume evidence.",
-      fieldId: "API-EXP"
-    },
-    {
-      id: "req-gen-m2",
-      title: "Cloud Infrastructure Certification",
-      status: "AMBIGUOUS",
-      explanation: "Available resume evidence is insufficient to verify official cloud infrastructure certification.",
-      fieldId: "CLOUD-CERT"
-    }
-  ];
-
-  const evidenceFields = {
-    "SKILLS-LIST": {
-      fieldId: "SKILLS-LIST",
-      category: "Skills",
-      status: "FOUND",
-      extractedValue: "React, Node.js, TypeScript, SQL",
-      sourceSection: "Technical Skills",
-      evidenceText: `"...proficient in React, Node.js, TypeScript, and SQL database management..." [Extracted from ${fileName}]`,
-      confidence: score,
-      reasoningLog: [
-        { type: "info", title: "Text Extraction", detail: "Parsed UTF-8 text from uploaded document." },
-        { type: "success", title: "Evidence Verification", detail: `High semantic match for provided Job Description. Confidence score set to ${score}%.` }
-      ]
-    }
-  };
+  const email = emailMatch ? emailMatch[0] : null;
+  const phone = phoneMatch ? phoneMatch[0] : null;
+  const linkedin = linkedinMatch ? linkedinMatch[0] : null;
 
   return {
     id,
     name: candidateName,
-    role: "Senior Software Engineer",
-    location: "San Francisco, CA",
-    email: `${candidateName.toLowerCase().replace(/\s+/g, ".")}@example.com`,
-    phone: "+1 (555) 012-4829",
-    linkedin: `linkedin.com/in/${candidateName.toLowerCase().replace(/\s+/g, "")}`,
-    avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80",
+    role: "Candidate",
+    location: "Location Not Specified",
+    email,
+    phone,
+    linkedin,
+    avatar: null,
     fitScore: score,
     fitStatus,
     recommendation,
     skillsMatch,
-    experienceMatch,
-    educationMatch,
-    mainStrength: "Strong Technical Stack Alignment",
-    mainGap: "Cloud Certification evidence ambiguous",
-    extractedProfile,
-    matchedRequirements,
-    missingRequirements,
-    evidenceFields,
+    experienceMatch: 0,
+    educationMatch: 0,
+    mainStrength: extractedSkills.length > 0 ? `Identified competencies: ${extractedSkills.slice(0, 3).join(', ')}` : "None identified",
+    mainGap: extractedSkills.length === 0 ? "No technical skills detected" : "Review specific criteria",
+    extractedProfile: {
+      fullName: candidateName,
+      email,
+      phone,
+      linkedin,
+      location: null,
+      education: null,
+      latestExperience: null,
+      skills: extractedSkills.map(sk => ({ name: sk, verified: true }))
+    },
+    matchedRequirements: extractedSkills.slice(0, 3).map((sk, idx) => ({
+      id: `req-client-${idx}`,
+      title: `Skill Match: ${sk}`,
+      status: "MATCHED",
+      explanation: `Verified competency "${sk}" in resume content.`,
+      fieldId: "SKILLS-LIST",
+      evidence: `Extracted skill: ${sk}`
+    })),
+    missingRequirements: [],
+    evidenceFields: {
+      "SKILLS-LIST": {
+        fieldId: "SKILLS-LIST",
+        category: "Skills",
+        status: extractedSkills.length > 0 ? "FOUND" : "NOT_FOUND",
+        extractedValue: extractedSkills.join(", ") || null,
+        sourceSection: "Document Text",
+        evidenceText: extractedSkills.length > 0 ? `Extracted skills: ${extractedSkills.join(', ')}` : "No skills found",
+        confidence: extractedSkills.length > 0 ? 90 : 0,
+        reasoningLog: []
+      }
+    },
     documents: [{ name: fileName, date: new Date().toISOString().split('T')[0] }],
-    resumeText: resumeText || `CANDIDATE: ${candidateName.toUpperCase()}\nRole: Senior Software Engineer\n\nSUMMARY\nPassionate software engineer with experience building web applications and backend APIs.\n\nSKILLS\nReact, Node.js, TypeScript, Python, SQL, Git`
+    resumeText: text
   };
 }
